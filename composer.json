@@ -3,7 +3,7 @@
   "type": "yii2-extension",
   "description": "Fixer.io API-client for Yii2",
   "keywords": ["yii2", "fixer.io", "currency"],
-  "license": "BSD-3-Clause",
+  "license": "BSD-2-Clause",
   "support": {
     "issues": "https://github.com/yiisolutions/yii2-fixer-client/issues",
     "source": "https://github.com/yiisolutions/yii2-fixer-client"
