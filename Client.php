@@ -135,7 +135,7 @@ class Client extends Component
         }
 
         $cache = $this->getCache();
-        $key = $this->cacheKeyPrefix . md5($path.json_encode($queryParams));
+        $key = $this->cacheKeyPrefix . md5($path . json_encode($queryParams));
         $data = $cache->get($key);
 
         if ($data === false) {
