@@ -59,6 +59,11 @@ class Client extends Component
     public $cacheComponentId = 'cache';
 
     /**
+     * @var integer cache lifetime
+     */
+    public $cacheDuration = 0;
+
+    /**
      * @var string
      */
     public $cacheKeyPrefix = 'yiisolutions-fixer-client-';
@@ -140,7 +145,7 @@ class Client extends Component
 
         if ($data === false) {
             $data = $this->performRequest($path, $queryParams);
-            $cache->set($key, $data);
+            $cache->set($key, $data, $this->cacheDuration);
         }
 
         return $data;
