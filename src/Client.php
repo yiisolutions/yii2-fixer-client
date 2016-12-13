@@ -114,16 +114,7 @@ class Client extends Component
     public function historical($date, $base = null, $symbols = [])
     {
         $queryParams = $this->buildQueryParams($base, $symbols);
-
-        if ($date instanceof \DateTime) {
-            $path = $date->format('Y-m-d');
-        } elseif (is_int($date)) {
-            $path = date('Y-m-d', time());
-        } elseif (preg_match('/^\d{4}\-\d{2}\-\d{2}$/', $date)) {
-            $path = $date;
-        } else {
-            $path = date('Y-m-d', strtotime($date));
-        }
+        $path = $this->buildHistoricalPath($date);
 
         return $this->throughCache($path, $queryParams);
     }
@@ -140,7 +131,7 @@ class Client extends Component
         }
 
         $cache = $this->getCache();
-        $key = $this->cacheKeyPrefix . md5($path . json_encode($queryParams));
+        $key = $this->buildCacheKey($path, $queryParams);
         $data = $cache->get($key);
 
         if ($data === false) {
@@ -202,11 +193,38 @@ class Client extends Component
     }
 
     /**
+     * @param $date
+     * @return false|string
+     */
+    protected function buildHistoricalPath($date)
+    {
+        if ($date instanceof \DateTime) {
+            return $date->format('Y-m-d');
+        } elseif (is_int($date)) {
+            return date('Y-m-d', $date);
+        } elseif (preg_match('/^\d{4}\-\d{2}\-\d{2}$/', $date)) {
+            return $date;
+        } else {
+            return date('Y-m-d', strtotime($date));
+        }
+    }
+
+    /**
+     * @param $path
+     * @param array $queryParams
+     * @return string
+     */
+    protected function buildCacheKey($path, array $queryParams = [])
+    {
+        return $this->cacheKeyPrefix . md5($path . json_encode($queryParams));
+    }
+
+    /**
      * Get cache component
      * @return Cache
      * @throws InvalidConfigException
      */
-    private function getCache()
+    protected function getCache()
     {
         if (!($this->_cache instanceof Cache)) {
             if (!Yii::$app->has($this->cacheComponentId)) {
