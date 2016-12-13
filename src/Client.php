@@ -181,7 +181,7 @@ class Client extends Component
      * @return array
      * @throws InvalidConfigException
      */
-    private function buildQueryParams($base, $symbols)
+    protected function buildQueryParams($base, $symbols)
     {
         if (empty($base)) {
             if (empty($this->defaultBase)) {
