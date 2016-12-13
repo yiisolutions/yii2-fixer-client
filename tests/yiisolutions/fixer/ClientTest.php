@@ -2,8 +2,15 @@
 
 namespace yiisolutions\fixer;
 
+use Yii;
+use yii\caching\Cache;
 use yii\caching\FileCache;
+use yii\helpers\Json;
+use yii\httpclient\Request;
+use yii\httpclient\Client as HttpClient;
+use yii\httpclient\Response;
 use yii\web\Application;
+use yii\web\HttpException;
 
 class ClientTest extends \PHPUnit_Framework_TestCase
 {
@@ -174,6 +181,144 @@ class ClientTest extends \PHPUnit_Framework_TestCase
     }
 
     /**
+     * @param $base
+     * @param $symbols
+     *
+     * @dataProvider latestMethodDataProvider
+     */
+    public function testThroughCacheMethodUseCacheExists($base, $symbols)
+    {
+        $queryParams = compact('base', 'symbols');
+        $cacheKey = md5($base);
+
+        $cache = $this->getMockCache(['get', 'set']);
+
+        $client = $this->getMockClient(['buildQueryParams', 'buildCacheKey', 'performRequest', 'getCache']);
+        $client->useCache = true;
+        $client->cacheDuration = 0;
+
+        $client->expects($this->once())
+            ->method('buildQueryParams')
+            ->with($this->equalTo($base), $this->equalTo($symbols))
+            ->will($this->returnValue($queryParams));
+
+        $client->expects($this->once())
+            ->method('getCache')
+            ->will($this->returnValue($cache));
+
+        $client->expects($this->once())
+            ->method('buildCacheKey')
+            ->with($this->equalTo('latest'), $queryParams)
+            ->will($this->returnValue($cacheKey));
+
+        $cache->expects($this->once())
+            ->method('get')
+            ->with($this->equalTo($cacheKey))
+            ->will($this->returnValue(true));
+
+        $this->assertTrue($client->latest($base, $symbols));
+    }
+
+    /**
+     * @param $base
+     * @param $symbols
+     *
+     * @dataProvider latestMethodDataProvider
+     */
+    public function testPerformRequestMethodIsOkResponse($base, $symbols)
+    {
+        $payload = ['latest' => true];
+        $queryParams = compact('base', 'symbols');
+
+        $httpClient = $this->getMockHttpClient(['createRequest']);
+        $request = $this->getMockHttpRequest(['send']);
+        $response = $this->getMockHttpResponse(['getIsOk', 'getContent']);
+
+        $client = $this->getMockClient(['buildQueryParams', 'getHttpClient']);
+        $client->useCache = false;
+
+        $client->expects($this->once())
+            ->method('buildQueryParams')
+            ->with($this->equalTo($base), $this->equalTo($symbols))
+            ->will($this->returnValue($queryParams));
+
+        $client->expects($this->once())
+            ->method('getHttpClient')
+            ->will($this->returnValue($httpClient));
+
+        $httpClient->expects($this->once())
+            ->method('createRequest')
+            ->will($this->returnValue($request));
+
+        $request->expects($this->once())
+            ->method('send')
+            ->will($this->returnValue($response));
+
+        $response->expects($this->once())
+            ->method('getIsOk')
+            ->will($this->returnValue(true));
+
+        $response->expects($this->once())
+            ->method('getContent')
+            ->will($this->returnValue(Json::encode($payload)));
+
+        $this->assertEquals($payload, $client->latest($base, $symbols));
+    }
+
+    /**
+     * @param $base
+     * @param $symbols
+     *
+     * @dataProvider latestMethodDataProvider
+     */
+    public function testPerformRequestMethodNotOkResponse($base, $symbols)
+    {
+        $payload = ['latest' => true];
+        $queryParams = compact('base', 'symbols');
+
+        $httpClient = $this->getMockHttpClient(['createRequest']);
+        $request = $this->getMockHttpRequest(['send']);
+        $response = $this->getMockHttpResponse(['getIsOk', 'getContent', 'getStatusCode']);
+
+        $client = $this->getMockClient(['buildQueryParams', 'getHttpClient']);
+        $client->useCache = false;
+
+        $client->expects($this->once())
+            ->method('buildQueryParams')
+            ->with($this->equalTo($base), $this->equalTo($symbols))
+            ->will($this->returnValue($queryParams));
+
+        $client->expects($this->once())
+            ->method('getHttpClient')
+            ->will($this->returnValue($httpClient));
+
+        $httpClient->expects($this->once())
+            ->method('createRequest')
+            ->will($this->returnValue($request));
+
+        $request->expects($this->once())
+            ->method('send')
+            ->will($this->returnValue($response));
+
+        $response->expects($this->once())
+            ->method('getIsOk')
+            ->will($this->returnValue(false));
+
+        $response->expects($this->once())
+            ->method('getContent')
+            ->will($this->returnValue(Json::encode($payload)));
+
+        $response->expects($this->once())
+            ->method('getStatusCode')
+            ->will($this->returnValue(500));
+
+        $this->expectException(HttpException::class);
+        $this->expectExceptionMessage(Json::encode($payload));
+
+        $this->assertEquals($payload, $client->latest($base, $symbols));
+    }
+
+    /**
      * @param array $methods
      * @return \PHPUnit_Framework_MockObject_MockObject|Client
      */
@@ -187,11 +332,47 @@ class ClientTest extends \PHPUnit_Framework_TestCase
 
     /**
      * @param array $methods
-     * @return \PHPUnit_Framework_MockObject_MockObject
+     * @return \PHPUnit_Framework_MockObject_MockObject|Cache
      */
     private function getMockCache(array $methods)
     {
         return $this->getMockBuilder(FileCache::class)
+            ->disableOriginalConstructor()
+            ->setMethods($methods)
+            ->getMock();
+    }
+
+    /**
+     * @param array $methods
+     * @return \PHPUnit_Framework_MockObject_MockObject|HttpClient
+     */
+    private function getMockHttpClient(array $methods)
+    {
+        return $this->getMockBuilder(HttpClient::class)
+            ->disableOriginalConstructor()
+            ->setMethods($methods)
+            ->getMock();
+    }
+
+    /**
+     * @param array $methods
+     * @return \PHPUnit_Framework_MockObject_MockObject|Request
+     */
+    private function getMockHttpRequest(array $methods)
+    {
+        return $this->getMockBuilder(Request::class)
+            ->disableOriginalConstructor()
+            ->setMethods($methods)
+            ->getMock();
+    }
+
+    /**
+     * @param array $methods
+     * @return \PHPUnit_Framework_MockObject_MockObject|Response
+     */
+    private function getMockHttpResponse(array $methods = [])
+    {
+        return $this->getMockBuilder(Response::class)
             ->disableOriginalConstructor()
             ->setMethods($methods)
             ->getMock();
