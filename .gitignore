@@ -1,4 +1,4 @@
 .idea
-clover.xml
+coverage.xml
 phpunit.xml
 vendor
