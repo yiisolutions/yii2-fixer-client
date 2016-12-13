@@ -7,3 +7,4 @@ php:
 install: ./ci-scripts/install.sh
 before_script: ./ci-scripts/before_script.sh
 script: ./ci-scripts/script.sh
+after_success: ./ci-scripts/after_success.sh
